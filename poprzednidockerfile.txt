@@ -1,0 +1,31 @@
+FROM alpine:3.18 AS base
+
+#instalowanie nodejs npm i curl 
+RUN apk add --no-cache nodejs npm curl
+
+WORKDIR /usr/app
+
+ENV PORT=80
+
+#etykieta OCI 
+LABEL org.opencontainers.image.authors="mateusz kłos"
+
+#kopiujemy plik aplikacji do obrazu
+COPY WeatherApp.js .
+
+#nowa grupa i użytkownik( bez roota)
+#nadanie odpowiednich uprawnien do katalogu aplikacji 
+RUN addgroup -S nodeapp && \
+    adduser -S -G nodeapp nodeapp && \
+    chown -R nodeapp:nodeapp /usr/app
+
+#uzytkownik nieuprzywilejowany 
+USER nodeapp
+
+EXPOSE 80
+
+HEALTHCHECK --interval=10s --timeout=1s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:80/ || exit 1
+
+
+CMD [ "node", "WeatherApp.js" ]
