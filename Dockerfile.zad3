@@ -1,23 +1,28 @@
+# syntax=docker/dockerfile:1.4
+
 FROM node:18-alpine3.18 AS builder
 
-
-RUN apk add --no-cache git
+RUN apk add --no-cache git openssh-client 
 
 WORKDIR /app
 
+# Przygotowanie SSH
+RUN mkdir -p /root/.ssh && \
+    ssh-keyscan -t rsa github.com >> /root/.ssh/known_hosts
 
-RUN --mount=type=bind,source=package.json,target=/mnt/package.json \
-    --mount=type=bind,source=WeatherApp.js,target=/mnt/WeatherApp.js \
-    cp /mnt/package.json /mnt/WeatherApp.js ./
+# Mount secret z kluczem SSH
+RUN --mount=type=secret,id=sshkey,target=/root/.ssh/id_rsa,uid=0,mode=0600 \
+    git clone git@github.com:mateuszek123/DockerZad1Nieobowiazkowe.git .
+
+# cache npm
+RUN --mount=type=cache,target=/root/.npm \
+    npm install
 
 
 FROM node:18-alpine3.18
 
 RUN apk update && \
-    apk upgrade && \
-    apk add --no-cache curl && \
-    addgroup -S nodeapp && \
-    adduser -S -G nodeapp nodeapp
+    apk add --no-cache curl
 
 WORKDIR /usr/app
 
@@ -25,10 +30,9 @@ ENV PORT=80
 
 LABEL org.opencontainers.image.authors="mateusz kłos"
 
-COPY --from=builder /app/package.json /app/WeatherApp.js ./
+COPY --from=builder /app ./
 
-RUN npm install || true && \
-    chown -R nodeapp:nodeapp /usr/app
+RUN chown -R nodeapp:nodeapp /usr/app
 
 USER nodeapp
 
